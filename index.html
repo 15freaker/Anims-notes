@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anims-Notes</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar collapsed" id="sidebar">
+            <button class="toggle-btn" id="toggleSidebarBtn">MENU</button>
+            <nav class="nav-menu">
+                <button class="nav-item active" data-view="active">
+                    <span class="nav-text">All Notes</span>
+                </button>
+                <button class="nav-item" data-view="archive">
+                    <span class="nav-text">Archive</span>
+                </button>
+                <button class="nav-item" data-view="bin">
+                    <span class="nav-text">Recycle Bin</span>
+                </button>
+                <div class="sidebar-divider"></div>
+                <button class="nav-item action-link" id="exportBtn">
+                    <span class="nav-text">Export Backup</span>
+                </button>
+                <button class="nav-item action-link" id="importBtnTrigger">
+                    <span class="nav-text">Import Backup</span>
+                </button>
+                <input type="file" id="importInput" accept=".json" style="display: none;">
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <h1 id="viewHeading">Anims-Notes</h1>
+                <input type="text" id="searchInput" placeholder="Search notes..." class="search-input">
+            </header>
+
+            <div class="action-card" id="actionCard">
+                <div class="action-btn" id="createNewNoteBtn">
+                    <span class="icon">+</span>
+                    <span class="label">Create New Note</span>
+                </div>
+            </div>
+
+            <div class="modal-overlay" id="typeModal">
+                <div class="modal-content type-selector">
+                    <h2>Select Note Format</h2>
+                    <div class="type-options">
+                        <button class="type-btn" id="selectTextNote">
+                            <span class="type-title">Standard Note</span>
+                            <span class="type-desc">Freeform rich text note with highlights</span>
+                        </button>
+                        <button class="type-btn" id="selectChecklistNote">
+                            <span class="type-title">Checklist / Todo List</span>
+                            <span class="type-desc">Interactive task list with checkboxes</span>
+                        </button>
+                    </div>
+                    <button class="close-type-btn" id="closeTypeBtn">Cancel</button>
+                </div>
+            </div>
+
+            <div class="modal-overlay" id="noteModal">
+                <div class="modal-content modal-large">
+                    <div class="modal-header">
+                        <h2 id="modalTitle">Editor</h2>
+                        <div class="modal-tools">
+                            <div class="color-picker">
+                                <span class="picker-label">Card Color:</span>
+                                <input type="color" id="noteColorInput" value="#1e293b">
+                            </div>
+                            <div class="stats" id="modalStats">0 words | 0 chars</div>
+                        </div>
+                    </div>
+
+                    <input type="text" id="noteTitleInput" placeholder="Title...">
+
+                    <div class="editor-toolbar" id="textToolbar">
+                        <button type="button" class="tool-btn" id="btnBold">B</button>
+                        <button type="button" class="tool-btn" id="btnItalic">I</button>
+                        <button type="button" class="tool-btn" id="btnUnderline">U</button>
+                        <button type="button" class="tool-btn highlight-tool" id="btnHighlight">Highlight</button>
+                    </div>
+
+                    <div id="editorContainer">
+                        <div id="noteTextEditor" contenteditable="true" data-placeholder="Write your note here..."></div>
+                        <div id="checklistEditor" class="checklist-builder" style="display: none;">
+                            <div class="checklist-input-group">
+                                <input type="text" id="newChecklistItem" placeholder="Add a new task...">
+                                <button type="button" id="addChecklistItemBtn">Add</button>
+                            </div>
+                            <ul id="checklistItemsList"></ul>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button id="cancelBtn" type="button">Cancel</button>
+                        <button id="saveBtn" type="button">Save Note</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="notesContainer" class="notes-grid"></div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
