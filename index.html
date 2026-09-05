@@ -10,21 +10,13 @@
     <div class="app-layout">
         <aside class="sidebar" id="sidebar">
             <button class="toggle-btn" id="toggleSidebarBtn">MENU</button>
-            
             <nav class="nav-menu">
-                <button class="nav-item active" data-view="active">
-                    <span class="nav-text">All Notes</span>
-                </button>
-                <button class="nav-item" data-view="archive">
-                    <span class="nav-text">Archive</span>
-                </button>
-                <button class="nav-item" data-view="bin">
-                    <span class="nav-text">Recycle Bin</span>
-                </button>
+                <button class="nav-item active" data-view="active"><span class="nav-text">All Notes</span></button>
+                <button class="nav-item" data-view="archive"><span class="nav-text">Archive</span></button>
+                <button class="nav-item" data-view="bin"><span class="nav-text">Recycle Bin</span></button>
 
                 <div class="sidebar-divider"></div>
 
-                <!-- Folders Section -->
                 <div class="sidebar-section-header">
                     <span>Folders</span>
                     <button id="addFolderBtn" title="Create Folder">+</button>
@@ -33,12 +25,8 @@
 
                 <div class="sidebar-divider"></div>
 
-                <button class="nav-item action-link" id="exportBtn">
-                    <span class="nav-text">Export Backup</span>
-                </button>
-                <button class="nav-item action-link" id="importBtnTrigger">
-                    <span class="nav-text">Import Backup</span>
-                </button>
+                <button class="nav-item action-link" id="exportBtn"><span class="nav-text">Export Backup</span></button>
+                <button class="nav-item action-link" id="importBtnTrigger"><span class="nav-text">Import Backup</span></button>
                 <input type="file" id="importInput" accept=".json" style="display: none;">
             </nav>
         </aside>
@@ -46,18 +34,14 @@
         <main class="main-content">
             <header class="top-bar">
                 <h1 id="viewHeading">Anims-Notes</h1>
-                
-                <!-- Expanded Global Search & Filter Section -->
                 <div class="search-filter-container">
                     <input type="text" id="searchInput" placeholder="Search title, content, or #tags..." class="search-input">
-                    
                     <div class="filter-group">
                         <select id="typeFilter" class="filter-select">
                             <option value="all">All Types</option>
                             <option value="text">Text Notes</option>
                             <option value="checklist">Checklists</option>
                         </select>
-
                         <select id="colorFilter" class="filter-select">
                             <option value="all">All Colors</option>
                             <option value="#1e293b">Default Dark</option>
@@ -66,7 +50,6 @@
                             <option value="#701a75">Deep Purple</option>
                             <option value="#78350f">Warm Amber</option>
                         </select>
-
                         <select id="sortFilter" class="filter-select">
                             <option value="newest">Newest First</option>
                             <option value="oldest">Oldest First</option>
@@ -83,13 +66,14 @@
                 </div>
             </div>
 
+            <!-- Format Selector Modal -->
             <div class="modal-overlay" id="typeModal">
                 <div class="modal-content type-selector">
                     <h2>Select Note Format</h2>
                     <div class="type-options">
                         <button class="type-btn" id="selectTextNote">
                             <span class="type-title">Standard Note</span>
-                            <span class="type-desc">Freeform rich text note with highlights</span>
+                            <span class="type-desc">Freeform rich text, attachments, & drawings</span>
                         </button>
                         <button class="type-btn" id="selectChecklistNote">
                             <span class="type-title">Checklist / Todo List</span>
@@ -100,21 +84,21 @@
                 </div>
             </div>
 
+            <!-- Note Editor Modal -->
             <div class="modal-overlay" id="noteModal">
                 <div class="modal-content modal-large">
                     <div class="modal-header">
                         <h2 id="modalTitle">Editor</h2>
                         <div class="modal-tools">
+                            <span id="autoSaveIndicator" class="autosave-status">Saved</span>
                             <label class="lock-toggle">
                                 <input type="checkbox" id="noteProtectedInput">
                                 <span>Lock Note</span>
                             </label>
-                            
                             <div class="folder-picker">
                                 <span class="picker-label">Folder:</span>
                                 <select id="noteFolderSelect" class="filter-select"></select>
                             </div>
-
                             <div class="color-picker">
                                 <span class="picker-label">Color:</span>
                                 <select id="noteColorInput" class="filter-select">
@@ -125,22 +109,36 @@
                                     <option value="#78350f">Warm Amber</option>
                                 </select>
                             </div>
+                            <div class="history-picker">
+                                <span class="picker-label">History:</span>
+                                <select id="versionSelect" class="filter-select">
+                                    <option value="">Current Draft</option>
+                                </select>
+                            </div>
                             <div class="stats" id="modalStats">0 words | 0 chars</div>
                         </div>
                     </div>
 
                     <input type="text" id="noteTitleInput" placeholder="Title...">
-                    <input type="text" id="noteTagsInput" placeholder="Tags (comma separated, e.g. #science, #class10)...">
+                    <input type="text" id="noteTagsInput" placeholder="Tags (e.g. #science, #circuits)...">
 
                     <div class="editor-toolbar" id="textToolbar">
                         <button type="button" class="tool-btn" id="btnBold">B</button>
                         <button type="button" class="tool-btn" id="btnItalic">I</button>
                         <button type="button" class="tool-btn" id="btnUnderline">U</button>
                         <button type="button" class="tool-btn highlight-tool" id="btnHighlight">Highlight</button>
+                        <button type="button" class="tool-btn" id="openDrawingBtn">🎨 Sketch</button>
+                        <label class="tool-btn file-upload-btn">
+                            📎 Attach File
+                            <input type="file" id="fileAttachmentInput" multiple accept="image/*,application/pdf,.txt" style="display:none;">
+                        </label>
                     </div>
 
                     <div id="editorContainer">
-                        <div id="noteTextEditor" contenteditable="true" data-placeholder="Write your note here..."></div>
+                        <!-- Dropzone area for dragging images/files -->
+                        <div id="noteTextEditor" contenteditable="true" data-placeholder="Write note or drag & drop images/files here..."></div>
+                        <div id="attachmentsPreview" class="attachments-preview"></div>
+
                         <div id="checklistEditor" class="checklist-builder" style="display: none;">
                             <div class="checklist-input-group">
                                 <input type="text" id="newChecklistItem" placeholder="Add a new task...">
@@ -151,8 +149,27 @@
                     </div>
 
                     <div class="modal-actions">
-                        <button id="cancelBtn" type="button">Cancel</button>
-                        <button id="saveBtn" type="button">Save Note</button>
+                        <button id="cancelBtn" type="button">Close</button>
+                        <button id="saveBtn" type="button">Save Explicitly</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sketch Canvas Modal Overlay -->
+            <div class="modal-overlay" id="drawingModal">
+                <div class="modal-content drawing-content">
+                    <div class="modal-header">
+                        <h2>Drawing / Sketch Pad</h2>
+                        <div class="modal-tools">
+                            <input type="color" id="brushColor" value="#38bdf8">
+                            <input type="range" id="brushSize" min="1" max="20" value="3">
+                            <button class="tool-btn" id="clearCanvasBtn">Clear</button>
+                        </div>
+                    </div>
+                    <canvas id="sketchCanvas" width="700" height="400"></canvas>
+                    <div class="modal-actions">
+                        <button id="cancelDrawingBtn" type="button">Cancel</button>
+                        <button id="saveDrawingBtn" type="button">Embed Canvas Sketch</button>
                     </div>
                 </div>
             </div>
