@@ -8,8 +8,9 @@
 </head>
 <body>
     <div class="app-layout">
-        <aside class="sidebar collapsed" id="sidebar">
+        <aside class="sidebar" id="sidebar">
             <button class="toggle-btn" id="toggleSidebarBtn">MENU</button>
+            
             <nav class="nav-menu">
                 <button class="nav-item active" data-view="active">
                     <span class="nav-text">All Notes</span>
@@ -20,7 +21,18 @@
                 <button class="nav-item" data-view="bin">
                     <span class="nav-text">Recycle Bin</span>
                 </button>
+
                 <div class="sidebar-divider"></div>
+
+                <!-- Folders Section -->
+                <div class="sidebar-section-header">
+                    <span>Folders</span>
+                    <button id="addFolderBtn" title="Create Folder">+</button>
+                </div>
+                <div id="foldersTree" class="folders-tree"></div>
+
+                <div class="sidebar-divider"></div>
+
                 <button class="nav-item action-link" id="exportBtn">
                     <span class="nav-text">Export Backup</span>
                 </button>
@@ -34,7 +46,34 @@
         <main class="main-content">
             <header class="top-bar">
                 <h1 id="viewHeading">Anims-Notes</h1>
-                <input type="text" id="searchInput" placeholder="Search notes..." class="search-input">
+                
+                <!-- Expanded Global Search & Filter Section -->
+                <div class="search-filter-container">
+                    <input type="text" id="searchInput" placeholder="Search title, content, or #tags..." class="search-input">
+                    
+                    <div class="filter-group">
+                        <select id="typeFilter" class="filter-select">
+                            <option value="all">All Types</option>
+                            <option value="text">Text Notes</option>
+                            <option value="checklist">Checklists</option>
+                        </select>
+
+                        <select id="colorFilter" class="filter-select">
+                            <option value="all">All Colors</option>
+                            <option value="#1e293b">Default Dark</option>
+                            <option value="#1e3a8a">Navy Blue</option>
+                            <option value="#064e3b">Forest Green</option>
+                            <option value="#701a75">Deep Purple</option>
+                            <option value="#78350f">Warm Amber</option>
+                        </select>
+
+                        <select id="sortFilter" class="filter-select">
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="title">Title (A-Z)</option>
+                        </select>
+                    </div>
+                </div>
             </header>
 
             <div class="action-card" id="actionCard">
@@ -70,15 +109,28 @@
                                 <input type="checkbox" id="noteProtectedInput">
                                 <span>Lock Note</span>
                             </label>
+                            
+                            <div class="folder-picker">
+                                <span class="picker-label">Folder:</span>
+                                <select id="noteFolderSelect" class="filter-select"></select>
+                            </div>
+
                             <div class="color-picker">
                                 <span class="picker-label">Color:</span>
-                                <input type="color" id="noteColorInput" value="#1e293b">
+                                <select id="noteColorInput" class="filter-select">
+                                    <option value="#1e293b">Default Dark</option>
+                                    <option value="#1e3a8a">Navy Blue</option>
+                                    <option value="#064e3b">Forest Green</option>
+                                    <option value="#701a75">Deep Purple</option>
+                                    <option value="#78350f">Warm Amber</option>
+                                </select>
                             </div>
                             <div class="stats" id="modalStats">0 words | 0 chars</div>
                         </div>
                     </div>
 
                     <input type="text" id="noteTitleInput" placeholder="Title...">
+                    <input type="text" id="noteTagsInput" placeholder="Tags (comma separated, e.g. #science, #class10)...">
 
                     <div class="editor-toolbar" id="textToolbar">
                         <button type="button" class="tool-btn" id="btnBold">B</button>
