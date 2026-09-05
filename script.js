@@ -1,84 +1,42 @@
 document.addEventListener('DOMContentLoaded', () => {
     const sidebar = document.getElementById('sidebar');
-
     const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
-
     const navItems = document.querySelectorAll('.nav-item');
-
     const viewHeading = document.getElementById('viewHeading');
-
     const actionCard = document.getElementById('actionCard');
-
     const searchInput = document.getElementById('searchInput');
-
     const createNewNoteBtn = document.getElementById('createNewNoteBtn');
-
     const notesContainer = document.getElementById('notesContainer');
 
     const typeModal = document.getElementById('typeModal');
-
     const selectTextNote = document.getElementById('selectTextNote');
-
     const selectChecklistNote = document.getElementById('selectChecklistNote');
-
     const closeTypeBtn = document.getElementById('closeTypeBtn');
 
     const noteModal = document.getElementById('noteModal');
-
     const modalTitle = document.getElementById('modalTitle');
-
     const noteTitleInput = document.getElementById('noteTitleInput');
-
+    const noteProtectedInput = document.getElementById('noteProtectedInput');
     const noteTextEditor = document.getElementById('noteTextEditor');
-
     const textToolbar = document.getElementById('textToolbar');
-
     const checklistEditor = document.getElementById('checklistEditor');
-
     const newChecklistItem = document.getElementById('newChecklistItem');
-
     const addChecklistItemBtn = document.getElementById('addChecklistItemBtn');
-
     const checklistItemsList = document.getElementById('checklistItemsList');
-
     const noteColorInput = document.getElementById('noteColorInput');
-
     const modalStats = document.getElementById('modalStats');
-
     const saveBtn = document.getElementById('saveBtn');
-
     const cancelBtn = document.getElementById('cancelBtn');
 
     const exportBtn = document.getElementById('exportBtn');
-
     const importBtnTrigger = document.getElementById('importBtnTrigger');
-
     const importInput = document.getElementById('importInput');
-    
+
     let notes = JSON.parse(localStorage.getItem('anims_notes')) || [];
     let currentView = 'active';
     let currentMode = 'text';
     let currentChecklist = [];
-
-    const PROTECTED_ID = 'protected-permanent-note';
-
-    function initProtectedNote() {
-        const exists = notes.some(n => n.id === PROTECTED_ID);
-        if (!exists) {
-            notes.unshift({
-                id: PROTECTED_ID,
-                type: 'text',
-                title: 'Pinned Note (Protected)',
-                text: 'This is your permanent note. To delete or archive it, you must type its exact title when prompted.',
-                archived: false,
-                deleted: false,
-                pinned: true,
-                color: '#1e293b',
-                isProtected: true
-            });
-            saveAndRender();
-        }
-    }
+    let editingNoteId = null;
 
     toggleSidebarBtn.addEventListener('click', () => {
         sidebar.classList.toggle('collapsed');
@@ -124,6 +82,24 @@ document.addEventListener('DOMContentLoaded', () => {
         renderNotes();
     }
 
+    function sanitizeHTML(html) {
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        
+        const scripts = temp.getElementsByTagName('script');
+        while (scripts.length > 0) scripts[0].parentNode.removeChild(scripts[0]);
+        
+        const elements = temp.getElementsByTagName('*');
+        for (let el of elements) {
+            for (let attr of Array.from(el.attributes)) {
+                if (attr.name.startsWith('on')) {
+                    el.removeAttribute(attr.name);
+                }
+            }
+        }
+        return temp.innerHTML;
+    }
+
     function renderNotes() {
         notesContainer.innerHTML = '';
         const query = searchInput.value.toLowerCase();
@@ -155,30 +131,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let bodyContent = '';
             if (note.type === 'checklist' && Array.isArray(note.items)) {
-                const listItems = note.items.slice(0, 4).map(item => 
-                    `<li class="${item.done ? 'done' : ''}">${item.done ? '✓' : '○'} ${escapeHTML(item.text)}</li>`
+                const listItems = note.items.slice(0, 4).map((item, idx) => 
+                    `<li class="${item.done ? 'done' : ''}">
+                        <input type="checkbox" ${item.done ? 'checked' : ''} onclick="event.stopPropagation(); toggleCardChecklist('${note.id}', ${idx})">
+                        <span>${escapeHTML(item.text)}</span>
+                    </li>`
                 ).join('');
                 bodyContent = `<ul class="card-checklist-items">${listItems}</ul>`;
             } else {
-                bodyContent = `<div class="note-body">${note.text}</div>`;
+                bodyContent = `<div class="note-body">${sanitizeHTML(note.text || '')}</div>`;
             }
 
             let actionButtons = '';
             if (currentView === 'active') {
                 actionButtons = `
-                    ${!note.isProtected ? `<button class="card-btn" onclick="togglePinNote('${note.id}')">${note.pinned ? 'Unpin' : 'Pin'}</button>` : ''}
-                    <button class="card-btn" onclick="archiveNote('${note.id}')">Archive</button>
-                    <button class="card-btn" onclick="moveToBin('${note.id}')">Delete</button>
+                    <button class="card-btn" onclick="event.stopPropagation(); togglePinNote('${note.id}')">${note.pinned ? 'Unpin' : 'Pin'}</button>
+                    <button class="card-btn" onclick="event.stopPropagation(); archiveNote('${note.id}')">Archive</button>
+                    <button class="card-btn" onclick="event.stopPropagation(); moveToBin('${note.id}')">Delete</button>
                 `;
             } else if (currentView === 'archive') {
                 actionButtons = `
-                    <button class="card-btn" onclick="unarchiveNote('${note.id}')">Unarchive</button>
-                    <button class="card-btn" onclick="moveToBin('${note.id}')">Delete</button>
+                    <button class="card-btn" onclick="event.stopPropagation(); unarchiveNote('${note.id}')">Unarchive</button>
+                    <button class="card-btn" onclick="event.stopPropagation(); moveToBin('${note.id}')">Delete</button>
                 `;
             } else if (currentView === 'bin') {
                 actionButtons = `
-                    <button class="card-btn" onclick="restoreNote('${note.id}')">Restore</button>
-                    <button class="card-btn" onclick="permanentlyDeleteNote('${note.id}')">Remove</button>
+                    <button class="card-btn" onclick="event.stopPropagation(); restoreNote('${note.id}')">Restore</button>
+                    <button class="card-btn" onclick="event.stopPropagation(); permanentlyDeleteNote('${note.id}')">Remove</button>
                 `;
             }
 
@@ -193,9 +172,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
+            card.addEventListener('click', () => editNote(note.id));
             notesContainer.appendChild(card);
         });
     }
+
+    window.toggleCardChecklist = function(noteId, itemIdx) {
+        const note = notes.find(n => n.id === noteId);
+        if (note && note.items && note.items[itemIdx]) {
+            note.items[itemIdx].done = !note.items[itemIdx].done;
+            saveAndRender();
+        }
+    };
 
     createNewNoteBtn.addEventListener('click', () => {
         typeModal.style.display = 'flex';
@@ -215,31 +203,44 @@ document.addEventListener('DOMContentLoaded', () => {
         openModal('checklist');
     });
 
-    function openModal(mode) {
+    function openModal(mode, noteToEdit = null) {
         currentMode = mode;
-        modalTitle.textContent = mode === 'checklist' ? 'New Checklist' : 'New Standard Note';
-        noteTitleInput.value = '';
-        noteTextEditor.innerHTML = '';
-        currentChecklist = [];
-        renderChecklistItems();
+        editingNoteId = noteToEdit ? noteToEdit.id : null;
+
+        modalTitle.textContent = noteToEdit ? 'Edit Note' : (mode === 'checklist' ? 'New Checklist' : 'New Standard Note');
+        noteTitleInput.value = noteToEdit ? noteToEdit.title : '';
+        noteProtectedInput.checked = noteToEdit ? !!noteToEdit.isProtected : false;
 
         if (mode === 'checklist') {
             textToolbar.style.display = 'none';
             noteTextEditor.style.display = 'none';
             checklistEditor.style.display = 'flex';
+            currentChecklist = noteToEdit && noteToEdit.items ? [...noteToEdit.items] : [];
+            renderChecklistItems();
         } else {
             textToolbar.style.display = 'flex';
             noteTextEditor.style.display = 'block';
             checklistEditor.style.display = 'none';
+            noteTextEditor.innerHTML = noteToEdit ? sanitizeHTML(noteToEdit.text) : '';
         }
 
-        noteColorInput.value = '#1e293b';
+        noteColorInput.value = noteToEdit ? noteToEdit.color || '#1e293b' : '#1e293b';
         updateStats();
         noteModal.style.display = 'flex';
     }
 
+    function editNote(id) {
+        const note = notes.find(n => n.id === id);
+        if (!note) return;
+
+        if (note.isProtected && !verifyProtectedAction(note)) return;
+
+        openModal(note.type || 'text', note);
+    }
+
     function closeModal() {
         noteModal.style.display = 'none';
+        editingNoteId = null;
     }
 
     addChecklistItemBtn.addEventListener('click', () => {
@@ -274,23 +275,35 @@ document.addEventListener('DOMContentLoaded', () => {
         let text = '';
         
         if (currentMode === 'text') {
-            text = noteTextEditor.innerHTML;
+            text = sanitizeHTML(noteTextEditor.innerHTML);
         } else {
             text = currentChecklist.map(i => `${i.done ? '[x]' : '[ ]'} ${i.text}`).join('\n');
         }
 
         if (title || text || currentChecklist.length > 0) {
-            notes.unshift({
-                id: Date.now().toString(),
-                type: currentMode,
-                title,
-                text,
-                items: currentMode === 'checklist' ? currentChecklist : [],
-                archived: false,
-                deleted: false,
-                pinned: false,
-                color: noteColorInput.value
-            });
+            if (editingNoteId) {
+                const note = notes.find(n => n.id === editingNoteId);
+                if (note) {
+                    note.title = title;
+                    note.text = text;
+                    note.items = currentMode === 'checklist' ? currentChecklist : [];
+                    note.color = noteColorInput.value;
+                    note.isProtected = noteProtectedInput.checked;
+                }
+            } else {
+                notes.unshift({
+                    id: Date.now().toString(),
+                    type: currentMode,
+                    title,
+                    text,
+                    items: currentMode === 'checklist' ? currentChecklist : [],
+                    archived: false,
+                    deleted: false,
+                    pinned: false,
+                    color: noteColorInput.value,
+                    isProtected: noteProtectedInput.checked
+                });
+            }
             saveAndRender();
             closeModal();
         }
@@ -300,8 +313,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function verifyProtectedAction(note) {
         if (!note.isProtected) return true;
-        const confirmName = prompt(`This note is locked! Type "${note.title}" to confirm:`);
-        return confirmName === note.title;
+        const confirmName = prompt(`This note is locked! Type "${note.title || 'Untitled'}" to confirm:`);
+        return confirmName === (note.title || 'Untitled');
     }
 
     window.togglePinNote = function(id) {
@@ -370,7 +383,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const importedNotes = JSON.parse(event.target.result);
                 if (Array.isArray(importedNotes)) {
                     notes = importedNotes;
-                    initProtectedNote();
                     saveAndRender();
                     alert('Notes imported successfully!');
                 }
@@ -382,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function escapeHTML(str) {
-        return str.replace(/[&<>'"]/g, 
+        return (str || '').replace(/[&<>'"]/g, 
             tag => ({
                 '&': '&amp;',
                 '<': '&lt;',
@@ -393,5 +405,5 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
-    initProtectedNote();
+    renderNotes();
 });
