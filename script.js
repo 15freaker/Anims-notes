@@ -49,7 +49,6 @@ function htmlToMarkdown(html, title, tags) {
     const temp = document.createElement('div');
     temp.innerHTML = html;
 
-    // Convert basic HTML formatting tags to Markdown syntax
     let text = temp.innerHTML
         .replace(/<b>(.*?)<\/b>|<strong>(.*?)<\/strong>/gi, '**$1$2**')
         .replace(/<i>(.*?)<\/i>|<em>(.*?)<\/em>/gi, '*$1$2*')
@@ -76,6 +75,341 @@ function downloadFile(content, fileName, mimeType) {
     URL.revokeObjectURL(url);
 }
 
+// Render Folder Tree Sidebar & Modal Dropdowns
+function renderFolders() {
+    const foldersTree = document.getElementById('foldersTree');
+    const noteFolderSelect = document.getElementById('noteFolderSelect');
+    
+    if (foldersTree) {
+        foldersTree.innerHTML = '';
+        folders.forEach(folder => {
+            const folderEl = document.createElement('div');
+            folderEl.className = `folder-item ${appState.currentView === folder.id ? 'active' : ''}`;
+            folderEl.innerHTML = `
+                <span class="folder-name">📁 ${escapeHTML(folder.name)}</span>
+                <div class="folder-actions">
+                    <button class="folder-btn delete-folder-btn" title="Delete Folder">✕</button>
+                </div>
+            `;
+            folderEl.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-folder-btn')) {
+                    e.stopPropagation();
+                    if (confirm(`Delete folder "${folder.name}"? Notes inside will be unassigned.`)) {
+                        folders = folders.filter(f => f.id !== folder.id);
+                        notes.forEach(n => { if (n.folderId === folder.id) n.folderId = null; });
+                        saveAndRender();
+                    }
+                    return;
+                }
+                document.querySelectorAll('.nav-item, .folder-item').forEach(el => el.classList.remove('active'));
+                folderEl.classList.add('active');
+                appState.currentView = folder.id;
+                document.getElementById('viewHeading').textContent = folder.name;
+                document.getElementById('actionCard').style.display = 'flex';
+                renderNotes();
+            });
+            foldersTree.appendChild(folderEl);
+        });
+    }
+
+    if (noteFolderSelect) {
+        noteFolderSelect.innerHTML = '<option value="">None (Root)</option>';
+        folders.forEach(folder => {
+            const opt = document.createElement('option');
+            opt.value = folder.id;
+            opt.textContent = folder.name;
+            noteFolderSelect.appendChild(opt);
+        });
+    }
+}
+
+// Filter and Render Notes Grid
+function renderNotes() {
+    const notesContainer = document.getElementById('notesContainer');
+    if (!notesContainer) return;
+
+    const query = document.getElementById('searchInput')?.value.toLowerCase() || '';
+    const typeVal = document.getElementById('typeFilter')?.value || 'all';
+    const colorVal = document.getElementById('colorFilter')?.value || 'all';
+    const sortVal = document.getElementById('sortFilter')?.value || 'newest';
+
+    let filtered = notes.filter(note => {
+        // Handle View Filtering
+        if (appState.currentView === 'active') {
+            if (note.archived || note.inBin) return false;
+        } else if (appState.currentView === 'archive') {
+            if (!note.archived || note.inBin) return false;
+        } else if (appState.currentView === 'bin') {
+            if (!note.inBin) return false;
+        } else {
+            // Folder view
+            if (note.inBin || note.folderId !== appState.currentView) return false;
+        }
+
+        // Type filter
+        if (typeVal !== 'all' && note.type !== typeVal) return false;
+
+        // Color filter
+        if (colorVal !== 'all' && note.color !== colorVal) return false;
+
+        // Search text matching
+        if (query) {
+            const inTitle = (note.title || '').toLowerCase().includes(query);
+            const inContent = (note.content || '').toLowerCase().includes(query);
+            const inTags = (note.tags || []).some(t => t.toLowerCase().includes(query));
+            if (!inTitle && !inContent && !inTags) return false;
+        }
+
+        return true;
+    });
+
+    // Sorting Logic
+    filtered.sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        if (sortVal === 'newest') return (b.updatedAt || 0) - (a.updatedAt || 0);
+        if (sortVal === 'oldest') return (a.updatedAt || 0) - (b.updatedAt || 0);
+        if (sortVal === 'title') return (a.title || '').localeCompare(b.title || '');
+        return 0;
+    });
+
+    notesContainer.innerHTML = '';
+
+    if (filtered.length === 0) {
+        notesContainer.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #64748b; padding: 2rem;">No notes found.</div>`;
+        return;
+    }
+
+    filtered.forEach(note => {
+        const card = document.createElement('div');
+        card.className = `note-card ${note.pinned ? 'pinned' : ''} ${note.protected ? 'protected-note' : ''}`;
+        card.style.backgroundColor = note.color || '#1e293b';
+
+        let badgeHtml = '';
+        if (note.pinned) badgeHtml += `<span class="pin-badge">Pinned</span>`;
+        if (note.protected) badgeHtml += `<span class="protected-badge">Protected</span>`;
+
+        let tagsHtml = (note.tags || []).map(t => `<span class="tag-chip">${escapeHTML(t)}</span>`).join('');
+
+        let contentPreview = '';
+        if (note.protected) {
+            contentPreview = `<div class="note-body"><em>🔒 Content protected by PIN.</em></div>`;
+        } else if (note.type === 'checklist') {
+            const listItems = (note.checklist || []).slice(0, 3).map(item => 
+                `<li class="${item.done ? 'done' : ''}">${item.done ? '☑' : '☐'} ${escapeHTML(item.text)}</li>`
+            ).join('');
+            contentPreview = `<ul class="card-checklist-items">${listItems}</ul>`;
+        } else {
+            contentPreview = `<div class="note-body">${sanitizeHTML(note.content || '')}</div>`;
+        }
+
+        // Action Buttons
+        let actionsHtml = '';
+        if (appState.currentView === 'bin') {
+            actionsHtml = `
+                <button class="card-btn restore-btn">Restore</button>
+                <button class="card-btn delete-perm-btn">Delete Permanently</button>
+            `;
+        } else {
+            actionsHtml = `
+                <button class="card-btn pin-btn">${note.pinned ? 'Unpin' : 'Pin'}</button>
+                <button class="card-btn archive-btn">${note.archived ? 'Unarchive' : 'Archive'}</button>
+                <button class="card-btn delete-btn">Trash</button>
+            `;
+        }
+
+        card.innerHTML = `
+            ${badgeHtml}
+            <div>
+                <h3>${escapeHTML(note.title || 'Untitled Note')}</h3>
+                <div class="card-tags">${tagsHtml}</div>
+                ${contentPreview}
+            </div>
+            <div class="card-actions">${actionsHtml}</div>
+        `;
+
+        // Card Event Listeners
+        card.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') return;
+            openEditModal(note.id);
+        });
+
+        const pinBtn = card.querySelector('.pin-btn');
+        if (pinBtn) pinBtn.addEventListener('click', () => { note.pinned = !note.pinned; saveAndRender(); });
+
+        const archiveBtn = card.querySelector('.archive-btn');
+        if (archiveBtn) archiveBtn.addEventListener('click', () => { note.archived = !note.archived; saveAndRender(); });
+
+        const deleteBtn = card.querySelector('.delete-btn');
+        if (deleteBtn) deleteBtn.addEventListener('click', () => { note.inBin = true; saveAndRender(); });
+
+        const restoreBtn = card.querySelector('.restore-btn');
+        if (restoreBtn) restoreBtn.addEventListener('click', () => { note.inBin = false; saveAndRender(); });
+
+        const deletePermBtn = card.querySelector('.delete-perm-btn');
+        if (deletePermBtn) deletePermBtn.addEventListener('click', () => {
+            if (confirm('Permanently delete this note?')) {
+                notes = notes.filter(n => n.id !== note.id);
+                saveAndRender();
+            }
+        });
+
+        notesContainer.appendChild(card);
+    });
+}
+
+// Modal Handlers & Editor Controls
+function openEditModal(noteId) {
+    const note = notes.find(n => n.id === noteId);
+    if (!note) return;
+
+    if (note.protected && !verifyProtectedAction()) {
+        alert('Incorrect PIN!');
+        return;
+    }
+
+    appState.editingNoteId = note.id;
+    appState.currentMode = note.type || 'text';
+    appState.currentChecklist = note.checklist ? JSON.parse(JSON.stringify(note.checklist)) : [];
+    appState.currentAttachments = note.attachments ? [...note.attachments] : [];
+
+    document.getElementById('modalTitle').textContent = 'Edit Note';
+    document.getElementById('noteTitleInput').value = note.title || '';
+    document.getElementById('noteTagsInput').value = (note.tags || []).join(', ');
+    document.getElementById('noteProtectedInput').checked = !!note.protected;
+    document.getElementById('noteFolderSelect').value = note.folderId || '';
+    document.getElementById('noteColorInput').value = note.color || '#1e293b';
+
+    const textEditor = document.getElementById('noteTextEditor');
+    const textToolbar = document.getElementById('textToolbar');
+    const checklistEditor = document.getElementById('checklistEditor');
+
+    if (appState.currentMode === 'checklist') {
+        textEditor.style.display = 'none';
+        textToolbar.style.display = 'none';
+        checklistEditor.style.display = 'flex';
+        renderChecklistBuilder();
+    } else {
+        textEditor.style.display = 'block';
+        textToolbar.style.display = 'flex';
+        checklistEditor.style.display = 'none';
+        textEditor.innerHTML = note.content || '';
+    }
+
+    renderAttachmentsPreview();
+    updateEditorStats();
+    document.getElementById('noteModal').style.display = 'flex';
+}
+
+function renderChecklistBuilder() {
+    const listContainer = document.getElementById('checklistItemsList');
+    if (!listContainer) return;
+
+    listContainer.innerHTML = '';
+    appState.currentChecklist.forEach((item, index) => {
+        const li = document.createElement('li');
+        li.className = item.done ? 'done' : '';
+        li.innerHTML = `
+            <input type="checkbox" ${item.done ? 'checked' : ''}>
+            <span style="flex: 1;">${escapeHTML(item.text)}</span>
+            <button type="button" style="background: none; border: none; color: #ef4444; cursor: pointer; font-weight: bold;">✕</button>
+        `;
+
+        li.querySelector('input').addEventListener('change', (e) => {
+            appState.currentChecklist[index].done = e.target.checked;
+            renderChecklistBuilder();
+            triggerAutoSave();
+        });
+
+        li.querySelector('button').addEventListener('click', () => {
+            appState.currentChecklist.splice(index, 1);
+            renderChecklistBuilder();
+            triggerAutoSave();
+        });
+
+        listContainer.appendChild(li);
+    });
+}
+
+function renderAttachmentsPreview() {
+    const preview = document.getElementById('attachmentsPreview');
+    if (!preview) return;
+
+    preview.innerHTML = '';
+    appState.currentAttachments.forEach((att, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'attachment-chip';
+        chip.innerHTML = `
+            <span>📎 ${escapeHTML(att.name)}</span>
+            <button type="button">✕</button>
+        `;
+        chip.querySelector('button').addEventListener('click', () => {
+            appState.currentAttachments.splice(idx, 1);
+            renderAttachmentsPreview();
+            triggerAutoSave();
+        });
+        preview.appendChild(chip);
+    });
+}
+
+function updateEditorStats() {
+    const textEditor = document.getElementById('noteTextEditor');
+    const modalStats = document.getElementById('modalStats');
+    if (!modalStats) return;
+
+    let text = '';
+    if (appState.currentMode === 'text') {
+        text = textEditor.innerText || '';
+    } else {
+        text = appState.currentChecklist.map(c => c.text).join(' ');
+    }
+
+    const chars = text.length;
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    modalStats.textContent = `${words} words | ${chars} chars`;
+}
+
+function saveCurrentNote() {
+    if (!appState.editingNoteId) return;
+
+    const note = notes.find(n => n.id === appState.editingNoteId);
+    if (!note) return;
+
+    note.title = document.getElementById('noteTitleInput').value.trim();
+    const tagsVal = document.getElementById('noteTagsInput').value;
+    note.tags = tagsVal ? tagsVal.split(',').map(t => t.trim()).filter(Boolean) : [];
+    note.protected = document.getElementById('noteProtectedInput').checked;
+    note.folderId = document.getElementById('noteFolderSelect').value || null;
+    note.color = document.getElementById('noteColorInput').value;
+    note.updatedAt = Date.now();
+    note.attachments = [...appState.currentAttachments];
+
+    if (appState.currentMode === 'checklist') {
+        note.checklist = [...appState.currentChecklist];
+    } else {
+        note.content = sanitizeHTML(document.getElementById('noteTextEditor').innerHTML);
+    }
+
+    saveAndRender();
+    const indicator = document.getElementById('autoSaveIndicator');
+    if (indicator) {
+        indicator.textContent = 'Saved';
+        indicator.style.background = '#064e3b';
+    }
+}
+
+function triggerAutoSave() {
+    const indicator = document.getElementById('autoSaveIndicator');
+    if (indicator) {
+        indicator.textContent = 'Saving...';
+        indicator.style.background = '#78350f';
+    }
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+        saveCurrentNote();
+    }, 1000);
+}
+
+// DOM Initialization & Global Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
     const sidebar = document.getElementById('sidebar');
@@ -84,8 +418,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewHeading = document.getElementById('viewHeading');
     const actionCard = document.getElementById('actionCard');
     const createNewNoteBtn = document.getElementById('createNewNoteBtn');
-    const notesContainer = document.getElementById('notesContainer');
-    const foldersTree = document.getElementById('foldersTree');
     const addFolderBtn = document.getElementById('addFolderBtn');
 
     const searchInput = document.getElementById('searchInput');
@@ -99,26 +431,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeTypeBtn = document.getElementById('closeTypeBtn');
 
     const noteModal = document.getElementById('noteModal');
-    const modalTitle = document.getElementById('modalTitle');
-    const autoSaveIndicator = document.getElementById('autoSaveIndicator');
     const noteTitleInput = document.getElementById('noteTitleInput');
     const noteTagsInput = document.getElementById('noteTagsInput');
-    const noteProtectedInput = document.getElementById('noteProtectedInput');
-    const noteFolderSelect = document.getElementById('noteFolderSelect');
-    const noteColorInput = document.getElementById('noteColorInput');
     const noteTextEditor = document.getElementById('noteTextEditor');
-    const attachmentsPreview = document.getElementById('attachmentsPreview');
-    const textToolbar = document.getElementById('textToolbar');
-    const checklistEditor = document.getElementById('checklistEditor');
-    const newChecklistItem = document.getElementById('newChecklistItem');
     const addChecklistItemBtn = document.getElementById('addChecklistItemBtn');
-    const checklistItemsList = document.getElementById('checklistItemsList');
+    const newChecklistItem = document.getElementById('newChecklistItem');
     const fileAttachmentInput = document.getElementById('fileAttachmentInput');
-    const modalStats = document.getElementById('modalStats');
     const saveBtn = document.getElementById('saveBtn');
     const cancelBtn = document.getElementById('cancelBtn');
 
-    // Single Note Export Menu Elements
     const exportNoteMenuBtn = document.getElementById('exportNoteMenuBtn');
     const exportMenu = document.getElementById('exportMenu');
     const exportPdfBtn = document.getElementById('exportPdfBtn');
@@ -141,11 +462,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     toggleSidebarBtn.addEventListener('click', () => sidebar.classList.toggle('collapsed'));
 
-    // Navigation Switcher
+    // Navigation View Switcher
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             if (!item.dataset.view) return;
             navItems.forEach(nav => nav.classList.remove('active'));
+            document.querySelectorAll('.folder-item').forEach(f => f.classList.remove('active'));
             item.classList.add('active');
             appState.currentView = item.dataset.view;
 
@@ -153,26 +475,165 @@ document.addEventListener('DOMContentLoaded', () => {
             if (appState.currentView === 'archive') viewHeading.textContent = 'Archive';
             if (appState.currentView === 'bin') viewHeading.textContent = 'Recycle Bin';
 
-            renderFolders();
             actionCard.style.display = appState.currentView === 'bin' ? 'none' : 'flex';
             renderNotes();
         });
     });
 
     [searchInput, typeFilter, colorFilter, sortFilter].forEach(el => {
-        el.addEventListener('input', renderNotes);
-        el.addEventListener('change', renderNotes);
+        if (el) {
+            el.addEventListener('input', renderNotes);
+            el.addEventListener('change', renderNotes);
+        }
     });
 
-    // Formatting Toolbar
-    document.getElementById('btnBold').addEventListener('click', () => document.execCommand('bold', false, null));
-    document.getElementById('btnItalic').addEventListener('click', () => document.execCommand('italic', false, null));
-    document.getElementById('btnUnderline').addEventListener('click', () => document.execCommand('underline', false, null));
+    // Formatting Toolbar Event Listeners
+    document.getElementById('btnBold').addEventListener('click', () => {
+        document.execCommand('bold', false, null);
+        triggerAutoSave();
+    });
+    document.getElementById('btnItalic').addEventListener('click', () => {
+        document.execCommand('italic', false, null);
+        triggerAutoSave();
+    });
+    document.getElementById('btnUnderline').addEventListener('click', () => {
+        document.execCommand('underline', false, null);
+        triggerAutoSave();
+    });
     document.getElementById('btnHighlight').addEventListener('click', () => {
         document.execCommand('hiliteColor', false, '#facc15');
+        triggerAutoSave();
     });
 
-    // Single Note Export Handlers
+    // Auto-save triggers on text input
+    noteTitleInput.addEventListener('input', () => { updateEditorStats(); triggerAutoSave(); });
+    noteTagsInput.addEventListener('input', triggerAutoSave);
+    noteTextEditor.addEventListener('input', () => { updateEditorStats(); triggerAutoSave(); });
+
+    // Checklist Input
+    addChecklistItemBtn.addEventListener('click', () => {
+        const text = newChecklistItem.value.trim();
+        if (text) {
+            appState.currentChecklist.push({ text, done: false });
+            newChecklistItem.value = '';
+            renderChecklistBuilder();
+            triggerAutoSave();
+        }
+    });
+
+    // File Attachment Handler
+    fileAttachmentInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                appState.currentAttachments.push({
+                    name: file.name,
+                    type: file.type,
+                    data: event.target.result
+                });
+                renderAttachmentsPreview();
+                triggerAutoSave();
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+
+    // Folder Creation
+    addFolderBtn.addEventListener('click', () => {
+        const folderName = prompt('Enter Folder Name:');
+        if (folderName && folderName.trim()) {
+            folders.push({
+                id: 'folder_' + Date.now(),
+                name: folderName.trim()
+            });
+            saveAndRender();
+        }
+    });
+
+    // Note Creation Flow
+    createNewNoteBtn.addEventListener('click', () => {
+        typeModal.style.display = 'flex';
+    });
+
+    closeTypeBtn.addEventListener('click', () => {
+        typeModal.style.display = 'none';
+    });
+
+    selectTextNote.addEventListener('click', () => {
+        typeModal.style.display = 'none';
+        createNewNote('text');
+    });
+
+    selectChecklistNote.addEventListener('click', () => {
+        typeModal.style.display = 'none';
+        createNewNote('checklist');
+    });
+
+    function createNewNote(type) {
+        const newNote = {
+            id: 'note_' + Date.now(),
+            title: '',
+            content: '',
+            type: type,
+            checklist: [],
+            tags: [],
+            color: '#1e293b',
+            folderId: appState.currentView.startsWith('folder_') ? appState.currentView : null,
+            pinned: false,
+            archived: false,
+            inBin: false,
+            protected: false,
+            attachments: [],
+            updatedAt: Date.now()
+        };
+        notes.unshift(newNote);
+        saveAndRender();
+        openEditModal(newNote.id);
+    }
+
+    saveBtn.addEventListener('click', () => {
+        saveCurrentNote();
+        noteModal.style.display = 'none';
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        saveCurrentNote();
+        noteModal.style.display = 'none';
+    });
+
+    // Backup Export & Import
+    exportBtn.addEventListener('click', () => {
+        const backupData = JSON.stringify({ notes, folders }, null, 2);
+        downloadFile(backupData, `anims_notes_backup_${Date.now()}.json`, 'application/json');
+    });
+
+    importBtnTrigger.addEventListener('click', () => importInput.click());
+
+    importInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const imported = JSON.parse(event.target.result);
+                if (imported.notes && Array.isArray(imported.notes)) {
+                    notes = imported.notes;
+                    folders = imported.folders || [];
+                    saveAndRender();
+                    alert('Backup restored successfully!');
+                } else {
+                    alert('Invalid backup file structure.');
+                }
+            } catch (err) {
+                alert('Error parsing backup file.');
+            }
+        };
+        reader.readAsText(file);
+    });
+
+    // Single Note Export Menu Dropdown Controls
     exportNoteMenuBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         exportMenu.classList.toggle('show');
@@ -182,12 +643,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     exportTxtBtn.addEventListener('click', () => {
         const title = noteTitleInput.value.trim() || 'Untitled Note';
-        let body = '';
-        if (appState.currentMode === 'text') {
-            body = noteTextEditor.innerText;
-        } else {
-            body = appState.currentChecklist.map(i => `${i.done ? '[x]' : '[ ]'} ${i.text}`).join('\n');
-        }
+        let body = appState.currentMode === 'text' 
+            ? noteTextEditor.innerText 
+            : appState.currentChecklist.map(i => `${i.done ? '[x]' : '[ ]'} ${i.text}`).join('\n');
         const textContent = `${title}\n${'='.repeat(title.length)}\nTags: ${noteTagsInput.value}\n\n${body}`;
         downloadFile(textContent, `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`, 'text/plain');
     });
@@ -195,14 +653,9 @@ document.addEventListener('DOMContentLoaded', () => {
     exportMDBtn.addEventListener('click', () => {
         const title = noteTitleInput.value.trim() || 'Untitled Note';
         const tags = noteTagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
-        let mdContent = '';
-
-        if (appState.currentMode === 'text') {
-            mdContent = htmlToMarkdown(noteTextEditor.innerHTML, title, tags);
-        } else {
-            mdContent = `# ${title}\n\n**Tags:** ${tags.join(' ')}\n\n---\n\n` +
-                appState.currentChecklist.map(i => `- [${i.done ? 'x' : ' '}] ${i.text}`).join('\n');
-        }
+        let mdContent = appState.currentMode === 'text'
+            ? htmlToMarkdown(noteTextEditor.innerHTML, title, tags)
+            : `# ${title}\n\n**Tags:** ${tags.join(' ')}\n\n---\n\n` + appState.currentChecklist.map(i => `- [${i.done ? 'x' : ' '}] ${i.text}`).join('\n');
 
         downloadFile(mdContent, `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`, 'text/markdown');
     });
@@ -210,24 +663,21 @@ document.addEventListener('DOMContentLoaded', () => {
     exportPdfBtn.addEventListener('click', () => {
         const title = noteTitleInput.value.trim() || 'Untitled Note';
         const tags = noteTagsInput.value;
-
-        // Create temporary container for PDF styling
         const container = document.createElement('div');
         container.style.padding = '20px';
         container.style.color = '#000000';
         container.style.fontFamily = 'Arial, sans-serif';
-
         let bodyHtml = appState.currentMode === 'text' 
             ? noteTextEditor.innerHTML 
             : `<ul>${appState.currentChecklist.map(i => `<li style="list-style:none;">${i.done ? '☑' : '☐'} ${i.text}</li>`).join('')}</ul>`;
-
+        
         container.innerHTML = `
-            <h1 style="margin-bottom:5px; color:#1e293b;">${title}</h1>
-            <p style="color:#64748b; font-size:12px; margin-bottom:15px;">Tags: ${tags}</p>
+            <h1 style="margin-bottom:5px; color:#1e293b;">${escapeHTML(title)}</h1>
+            <p style="color:#64748b; font-size:12px; margin-bottom:15px;">Tags: ${escapeHTML(tags)}</p>
             <hr style="border:0; border-top:1px solid #ccc; margin-bottom:15px;">
             <div style="font-size:14px; line-height:1.6;">${bodyHtml}</div>
         `;
-
+        
         const opt = {
             margin:       0.5,
             filename:     `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`,
@@ -237,231 +687,37 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         if (window.html2pdf) {
-            html2pdf().set(opt).from(container).save();
+            html2pdf().set(opt).from(container).save().then(() => {
+                console.log('PDF exported successfully');
+            });
         } else {
-            alert('PDF generation library loading. Please try again in a moment.');
+            alert('PDF generator library is not ready.');
         }
     });
 
-    // Quick Card Export Helper
-    window.exportCardNote = function(id, format, e) {
-        e.stopPropagation();
-        const note = notes.find(n => n.id === id);
-        if (!note) return;
-        if (note.isProtected && !verifyProtectedAction()) return;
-
-        const title = note.title || 'Untitled Note';
-        const tags = note.tags || [];
-
-        if (format === 'txt') {
-            const body = note.type === 'text' 
-                ? note.text.replace(/<[^>]*>/g, '') 
-                : (note.items || []).map(i => `${i.done ? '[x]' : '[ ]'} ${i.text}`).join('\n');
-            downloadFile(`${title}\n\n${body}`, `${title.toLowerCase().replace(/\s+/g, '_')}.txt`, 'text/plain');
-        } else if (format === 'md') {
-            const md = note.type === 'text'
-                ? htmlToMarkdown(note.text, title, tags)
-                : `# ${title}\n\n` + (note.items || []).map(i => `- [${i.done ? 'x' : ' '}] ${i.text}`).join('\n');
-            downloadFile(md, `${title.toLowerCase().replace(/\s+/g, '_')}.md`, 'text/markdown');
-        }
-    };
-
-    // Folders
-    addFolderBtn.addEventListener('click', () => {
-        const name = prompt('Enter Folder Name:');
-        if (name && name.trim()) {
-            folders.push({ id: 'folder_' + Date.now(), name: name.trim(), parentId: null });
-            saveAndRender();
-        }
-    });
-
-    window.createSubfolder = function(parentId) {
-        const name = prompt('Enter Subfolder Name:');
-        if (name && name.trim()) {
-            folders.push({ id: 'folder_' + Date.now(), name: name.trim(), parentId: parentId });
-            saveAndRender();
-        }
-    };
-
-    window.deleteFolder = function(folderId) {
-        if (confirm('Delete folder? Notes inside will move to root.')) {
-            folders = folders.filter(f => f.id !== folderId && f.parentId !== folderId);
-            notes.forEach(n => { if (n.folderId === folderId) n.folderId = null; });
-            if (appState.currentView === folderId) appState.currentView = 'active';
-            saveAndRender();
-        }
-    };
-
-    function renderFolders() {
-        foldersTree.innerHTML = '';
-        folders.forEach(f => {
-            const item = document.createElement('div');
-            item.className = `folder-item ${appState.currentView === f.id ? 'active' : ''}`;
-            item.innerHTML = `
-                <div class="folder-name">📁 ${escapeHTML(f.name)}</div>
-                <div class="folder-actions">
-                    <button class="folder-btn" onclick="createSubfolder('${f.id}')">+</button>
-                    <button class="folder-btn" onclick="deleteFolder('${f.id}')">×</button>
-                </div>
-            `;
-            item.onclick = (e) => {
-                if (e.target.tagName === 'BUTTON') return;
-                appState.currentView = f.id;
-                viewHeading.textContent = `Folder: ${f.name}`;
-                renderFolders();
-                renderNotes();
-            };
-            foldersTree.appendChild(item);
-        });
-        updateFolderPickerOptions();
-    }
-
-    function updateFolderPickerOptions() {
-        noteFolderSelect.innerHTML = '<option value="">(No Folder)</option>';
-        folders.forEach(f => {
-            const opt = document.createElement('option');
-            opt.value = f.id;
-            opt.textContent = f.name;
-            noteFolderSelect.appendChild(opt);
-        });
-    }
-
-    // Modal Lifecycle & Note Creation
-    createNewNoteBtn.addEventListener('click', () => typeModal.style.display = 'flex');
-    closeTypeBtn.addEventListener('click', () => typeModal.style.display = 'none');
-
-    selectTextNote.addEventListener('click', () => openEditor('text'));
-    selectChecklistNote.addEventListener('click', () => openEditor('checklist'));
-
-    function openEditor(mode, note = null) {
-        typeModal.style.display = 'none';
-        noteModal.style.display = 'flex';
-        appState.currentMode = mode;
-        appState.editingNoteId = note ? note.id : null;
-        appState.currentAttachments = note && note.attachments ? [...note.attachments] : [];
-        appState.currentChecklist = note && note.items ? [...note.items] : [];
-
-        noteTitleInput.value = note ? note.title : '';
-        noteTagsInput.value = note && note.tags ? note.tags.join(', ') : '';
-        noteProtectedInput.checked = note ? note.isProtected : false;
-        noteColorInput.value = note ? note.color : '#1e293b';
-        noteFolderSelect.value = note ? note.folderId : (appState.currentView.startsWith('folder_') ? appState.currentView : '');
-
-        if (mode === 'text') {
-            textToolbar.style.display = 'flex';
-            noteTextEditor.style.display = 'block';
-            checklistEditor.style.display = 'none';
-            noteTextEditor.innerHTML = note ? note.text : '';
-        } else {
-            textToolbar.style.display = 'none';
-            noteTextEditor.style.display = 'none';
-            checklistEditor.style.display = 'flex';
-            renderChecklist();
-        }
-
-        renderAttachments();
-        updateStats();
-    }
-
-    cancelBtn.addEventListener('click', () => noteModal.style.display = 'none');
-    saveBtn.addEventListener('click', () => {
-        performAutoSave();
-        noteModal.style.display = 'none';
-    });
-
-    // Checklist Management
-    addChecklistItemBtn.addEventListener('click', addChecklistItem);
-    newChecklistItem.addEventListener('keypress', e => { if (e.key === 'Enter') addChecklistItem(); });
-
-    function addChecklistItem() {
-        const val = newChecklistItem.value.trim();
-        if (val) {
-            appState.currentChecklist.push({ text: val, done: false });
-            newChecklistItem.value = '';
-            renderChecklist();
-            triggerAutoSave();
-        }
-    }
-
-    function renderChecklist() {
-        checklistItemsList.innerHTML = '';
-        appState.currentChecklist.forEach((item, i) => {
-            const li = document.createElement('li');
-            li.className = item.done ? 'done' : '';
-            li.innerHTML = `
-                <input type="checkbox" ${item.done ? 'checked' : ''} onchange="toggleChecklistItem(${i})">
-                <span>${escapeHTML(item.text)}</span>
-                <button onclick="removeChecklistItem(${i})" style="margin-left:auto;background:none;border:none;color:#ef4444;cursor:pointer;">×</button>
-            `;
-            checklistItemsList.appendChild(li);
-        });
-    }
-
-    window.toggleChecklistItem = function(i) {
-        appState.currentChecklist[i].done = !appState.currentChecklist[i].done;
-        renderChecklist();
-        triggerAutoSave();
-    };
-
-    window.removeChecklistItem = function(i) {
-        appState.currentChecklist.splice(i, 1);
-        renderChecklist();
-        triggerAutoSave();
-    };
-
-    // Attachments Handling
-    fileAttachmentInput.addEventListener('change', e => handleFiles(e.target.files));
-
-    function handleFiles(files) {
-        Array.from(files).forEach(file => {
-            const reader = new FileReader();
-            if (file.type.startsWith('image/')) {
-                reader.onload = event => {
-                    const imgHtml = `<img src="${event.target.result}" alt="${escapeHTML(file.name)}">`;
-                    document.execCommand('insertHTML', false, imgHtml);
-                    triggerAutoSave();
-                };
-                reader.readAsDataURL(file);
-            } else {
-                reader.onload = event => {
-                    appState.currentAttachments.push({ name: file.name, data: event.target.result, type: file.type });
-                    renderAttachments();
-                    triggerAutoSave();
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-
-    function renderAttachments() {
-        attachmentsPreview.innerHTML = '';
-        appState.currentAttachments.forEach((att, idx) => {
-            const chip = document.createElement('div');
-            chip.classList.add('attachment-chip');
-            chip.innerHTML = `📎 ${escapeHTML(att.name)} <button onclick="removeAttachment(${idx})">×</button>`;
-            attachmentsPreview.appendChild(chip);
-        });
-    }
-
-    window.removeAttachment = function(idx) {
-        appState.currentAttachments.splice(idx, 1);
-        renderAttachments();
-        triggerAutoSave();
-    };
-
-    // Sketch Canvas
+    // Canvas / Sketch Pad Module
     openDrawingBtn.addEventListener('click', () => {
-        ctx.fillStyle = "#0f172a";
-        ctx.fillRect(0, 0, sketchCanvas.width, sketchCanvas.height);
         drawingModal.style.display = 'flex';
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, sketchCanvas.width, sketchCanvas.height);
     });
 
-    sketchCanvas.addEventListener('mousedown', e => {
+    cancelDrawingBtn.addEventListener('click', () => {
+        drawingModal.style.display = 'none';
+    });
+
+    clearCanvasBtn.addEventListener('click', () => {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, sketchCanvas.width, sketchCanvas.height);
+    });
+
+    sketchCanvas.addEventListener('mousedown', (e) => {
         isDrawing = true;
         ctx.beginPath();
         ctx.moveTo(e.offsetX, e.offsetY);
     });
-    sketchCanvas.addEventListener('mousemove', e => {
+
+    sketchCanvas.addEventListener('mousemove', (e) => {
         if (!isDrawing) return;
         ctx.strokeStyle = brushColor.value;
         ctx.lineWidth = brushSize.value;
@@ -469,224 +725,24 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineTo(e.offsetX, e.offsetY);
         ctx.stroke();
     });
+
     sketchCanvas.addEventListener('mouseup', () => isDrawing = false);
     sketchCanvas.addEventListener('mouseleave', () => isDrawing = false);
 
-    clearCanvasBtn.addEventListener('click', () => {
-        ctx.fillStyle = "#0f172a";
-        ctx.fillRect(0, 0, sketchCanvas.width, sketchCanvas.height);
-    });
-    cancelDrawingBtn.addEventListener('click', () => drawingModal.style.display = 'none');
-
     saveDrawingBtn.addEventListener('click', () => {
         const dataUrl = sketchCanvas.toDataURL('image/png');
-        const imgHtml = `<img src="${dataUrl}" alt="Canvas Sketch">`;
-        document.execCommand('insertHTML', false, imgHtml);
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        img.alt = 'Sketch';
+        
+        if (appState.currentMode === 'text') {
+            noteTextEditor.appendChild(img);
+            triggerAutoSave();
+        }
         drawingModal.style.display = 'none';
-        triggerAutoSave();
     });
 
-    // Auto-Save Management
-    [noteTitleInput, noteTagsInput, noteTextEditor, noteColorInput, noteFolderSelect, noteProtectedInput].forEach(el => {
-        el.addEventListener('input', triggerAutoSave);
-        el.addEventListener('change', triggerAutoSave);
-    });
-
-    function triggerAutoSave() {
-        updateStats();
-        autoSaveIndicator.textContent = 'Saving...';
-        autoSaveIndicator.style.background = '#78350f';
-
-        clearTimeout(autoSaveTimer);
-        autoSaveTimer = setTimeout(() => {
-            performAutoSave();
-            autoSaveIndicator.textContent = 'Saved';
-            autoSaveIndicator.style.background = '#064e3b';
-        }, 800);
-    }
-
-    function performAutoSave() {
-        const title = noteTitleInput.value.trim() || 'Untitled Note';
-        const tagsRaw = noteTagsInput.value.split(',').map(t => t.trim()).filter(t => t.length > 0);
-        const tags = tagsRaw.map(t => t.startsWith('#') ? t : `#${t}`);
-        const text = appState.currentMode === 'text' ? sanitizeHTML(noteTextEditor.innerHTML) : appState.currentChecklist.map(i => `${i.done ? '[x]' : '[ ]'} ${i.text}`).join('\n');
-
-        if (!appState.editingNoteId) {
-            appState.editingNoteId = Date.now().toString();
-            notes.unshift({
-                id: appState.editingNoteId,
-                createdAt: Date.now(),
-                type: appState.currentMode,
-                title, tags, text,
-                items: appState.currentMode === 'checklist' ? appState.currentChecklist : [],
-                attachments: [...appState.currentAttachments],
-                folderId: noteFolderSelect.value || null,
-                archived: false, deleted: false, pinned: false,
-                color: noteColorInput.value,
-                isProtected: noteProtectedInput.checked
-            });
-        } else {
-            const note = notes.find(n => n.id === appState.editingNoteId);
-            if (note) {
-                note.title = title;
-                note.tags = tags;
-                note.text = text;
-                note.items = appState.currentMode === 'checklist' ? appState.currentChecklist : [];
-                note.attachments = [...appState.currentAttachments];
-                note.folderId = noteFolderSelect.value || null;
-                note.color = noteColorInput.value;
-                note.isProtected = noteProtectedInput.checked;
-            }
-        }
-        saveAndRender();
-    }
-
-    function updateStats() {
-        const text = noteTextEditor.innerText || '';
-        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-        const chars = text.length;
-        modalStats.textContent = `${words} words | ${chars} chars`;
-    }
-
-    // Render Grid
-    function renderNotes() {
-        notesContainer.innerHTML = '';
-        let filtered = notes.filter(n => {
-            if (appState.currentView === 'active') return !n.archived && !n.deleted;
-            if (appState.currentView === 'archive') return n.archived && !n.deleted;
-            if (appState.currentView === 'bin') return n.deleted;
-            if (appState.currentView.startsWith('folder_')) return n.folderId === appState.currentView && !n.deleted;
-            return true;
-        });
-
-        const query = searchInput.value.toLowerCase();
-        if (query) {
-            filtered = filtered.filter(n =>
-                n.title.toLowerCase().includes(query) ||
-                n.text.toLowerCase().includes(query) ||
-                (n.tags && n.tags.some(t => t.toLowerCase().includes(query)))
-            );
-        }
-
-        if (typeFilter.value !== 'all') filtered = filtered.filter(n => n.type === typeFilter.value);
-        if (colorFilter.value !== 'all') filtered = filtered.filter(n => n.color === colorFilter.value);
-
-        if (sortFilter.value === 'newest') filtered.sort((a, b) => b.createdAt - a.createdAt);
-        if (sortFilter.value === 'oldest') filtered.sort((a, b) => a.createdAt - b.createdAt);
-        if (sortFilter.value === 'title') filtered.sort((a, b) => a.title.localeCompare(b.title));
-
-        filtered.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-
-        filtered.forEach(note => {
-            const card = document.createElement('div');
-            card.className = `note-card ${note.pinned ? 'pinned' : ''} ${note.isProtected ? 'protected-note' : ''}`;
-            card.style.backgroundColor = note.color || '#1e293b';
-
-            let bodyContent = '';
-            if (note.isProtected) {
-                bodyContent = '<div class="note-body"><em>🔒 Protected content</em></div>';
-            } else if (note.type === 'checklist') {
-                bodyContent = `
-                    <ul class="card-checklist-items">
-                        ${note.items.slice(0, 3).map(i => `<li class="${i.done ? 'done' : ''}">${i.done ? '✓' : '☐'} ${escapeHTML(i.text)}</li>`).join('')}
-                    </ul>`;
-            } else {
-                bodyContent = `<div class="note-body">${note.text}</div>`;
-            }
-
-            card.innerHTML = `
-                ${note.pinned ? '<span class="pin-badge">Pinned</span>' : ''}
-                ${note.isProtected ? '<span class="protected-badge">Locked</span>' : ''}
-                <h3>${escapeHTML(note.title)}</h3>
-                <div class="card-tags">${(note.tags || []).map(t => `<span class="tag-chip">${escapeHTML(t)}</span>`).join('')}</div>
-                ${bodyContent}
-                <div class="card-actions">
-                    ${appState.currentView !== 'bin' ? `
-                        <button class="card-btn" title="Quick Export .MD" onclick="exportCardNote('${note.id}', 'md', event)">.MD</button>
-                        <button class="card-btn" title="Quick Export .TXT" onclick="exportCardNote('${note.id}', 'txt', event)">.TXT</button>
-                        <button class="card-btn" onclick="togglePin('${note.id}', event)">${note.pinned ? 'Unpin' : 'Pin'}</button>
-                        <button class="card-btn" onclick="toggleArchive('${note.id}', event)">${note.archived ? 'Unarchive' : 'Archive'}</button>
-                        <button class="card-btn" onclick="moveToBin('${note.id}', event)">Delete</button>
-                    ` : `
-                        <button class="card-btn" onclick="restoreNote('${note.id}', event)">Restore</button>
-                        <button class="card-btn" onclick="permanentlyDelete('${note.id}', event)">Purge</button>
-                    `}
-                </div>
-            `;
-
-            card.onclick = (e) => {
-                if (e.target.tagName === 'BUTTON') return;
-                if (note.isProtected && !verifyProtectedAction()) return;
-                openEditor(note.type, note);
-            };
-
-            notesContainer.appendChild(card);
-        });
-    }
-
-    // Card Actions
-    window.togglePin = function(id, e) {
-        e.stopPropagation();
-        const n = notes.find(n => n.id === id);
-        if (n) { n.pinned = !n.pinned; saveAndRender(); }
-    };
-
-    window.toggleArchive = function(id, e) {
-        e.stopPropagation();
-        const n = notes.find(n => n.id === id);
-        if (n) { n.archived = !n.archived; saveAndRender(); }
-    };
-
-    window.moveToBin = function(id, e) {
-        e.stopPropagation();
-        const n = notes.find(n => n.id === id);
-        if (n) { n.deleted = true; saveAndRender(); }
-    };
-
-    window.restoreNote = function(id, e) {
-        e.stopPropagation();
-        const n = notes.find(n => n.id === id);
-        if (n) { n.deleted = false; saveAndRender(); }
-    };
-
-    window.permanentlyDelete = function(id, e) {
-        e.stopPropagation();
-        if (confirm('Permanently delete this note?')) {
-            notes = notes.filter(n => n.id !== id);
-            saveAndRender();
-        }
-    };
-
-    // Backup & Restore (Bulk JSON)
-    exportBtn.addEventListener('click', () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ notes, folders }));
-        const dl = document.createElement('a');
-        dl.setAttribute("href", dataStr);
-        dl.setAttribute("download", `anims_notes_backup_${Date.now()}.json`);
-        dl.click();
-    });
-
-    importBtnTrigger.addEventListener('click', () => importInput.click());
-    importInput.addEventListener('change', e => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = event => {
-                try {
-                    const parsed = JSON.parse(event.target.result);
-                    if (parsed.notes) notes = parsed.notes;
-                    if (parsed.folders) folders = parsed.folders;
-                    saveAndRender();
-                    alert('Backup imported successfully!');
-                } catch (err) {
-                    alert('Invalid JSON backup file.');
-                }
-            };
-            reader.readAsText(file);
-        }
-    });
-
-    // Initial Initialization
+    // Initial Load
     renderFolders();
     renderNotes();
 });

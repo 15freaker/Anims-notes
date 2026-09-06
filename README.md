@@ -1,10 +1,11 @@
 # Anims-Notes
 
-* i am made a note taking website filled with all kind of features.
+* i am made a note taking website filled with all kind of features. and i have also made it easy to understand and very basic
 
 # Screenshot 
 
 ![screenshot](image.png)
+![screenshot](image1.png)
 
 # Demo link 
 
@@ -17,12 +18,10 @@ https://15freaker.github.io/Anims-notes/
 # features
 
 * you can store your notes clean and in tidy way
-* fast and light weight 
 * you can search your notes
 * you can archive notes
 * you can delete notes 
-* you can export notes in json 
-* you can import notes in json
+* you can export/import notes in json 
 * you can create standard notes
 * you can create Checklist/to-do list
 * you can check/uncheck to-do list
@@ -33,14 +32,14 @@ https://15freaker.github.io/Anims-notes/
 * you can write bold word/sentence
 * you can write Italic word/sentence
 * locked note you have to write its name to delete it
-* added darkmode
-* can export your notes to save it
-* can import notes to use tools
-* tools like highlight 
+* you can tag your notes
+* you can store notes in tidy form by creating folder and file inside of website
+* you can attach files 
+* you can take notes by sketch 
 
 
 # how to use it locally 
 
-* install the code from github
+* clone the repo from github
 * double click "index.html" file
 * it will open in your browser totally locally.
