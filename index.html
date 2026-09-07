@@ -14,6 +14,7 @@
             <button class="toggle-btn" id="toggleSidebarBtn">MENU</button>
             <nav class="nav-menu">
                 <button class="nav-item active" data-view="active"><span class="nav-text">All Notes</span></button>
+                <button class="nav-item" data-view="favorites"><span class="nav-text">★ Favorites</span></button>
                 <button class="nav-item" data-view="archive"><span class="nav-text">Archive</span></button>
                 <button class="nav-item" data-view="bin"><span class="nav-text">Recycle Bin</span></button>
 
@@ -34,6 +35,14 @@
         </aside>
 
         <main class="main-content">
+            <!-- Quick Access Toolbar for Favorites & Pinned Folders -->
+            <div class="quick-access-bar" id="quickAccessBar">
+                <span class="quick-access-title">Quick Access:</span>
+                <div class="quick-access-items" id="quickAccessItems">
+                    <!-- Dynamic chips for starred notes and pinned folders will render here -->
+                </div>
+            </div>
+
             <header class="top-bar">
                 <h1 id="viewHeading">Anims-Notes</h1>
                 <div class="search-filter-container">
@@ -94,6 +103,8 @@
                         <div class="modal-tools">
                             <span id="autoSaveIndicator" class="autosave-status">Saved</span>
                             
+                            <button type="button" class="tool-btn favorite-toggle-btn" id="toggleFavoriteModalBtn" title="Star/Unstar Note">★</button>
+
                             <!-- Single Note Export Tools -->
                             <div class="export-dropdown">
                                 <button type="button" class="tool-btn" id="exportNoteMenuBtn">⬇ Export</button>

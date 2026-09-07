@@ -213,3 +213,131 @@ body {
 .type-title { font-weight: bold; color: #f8fafc; }
 .type-desc { font-size: 0.8rem; color: #94a3b8; }
 .close-type-btn { background: none; border: none; color: #94a3b8; cursor: pointer; text-decoration: underline; }
+/* Quick Access Toolbar */
+.quick-access-bar {
+    width: 100%;
+    max-width: 1000px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    overflow-x: auto;
+}
+
+.quick-access-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.quick-access-items {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.qa-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #f8fafc;
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.qa-chip:hover {
+    background: #334155;
+    border-color: #3b82f6;
+}
+
+.qa-chip.folder-chip {
+    border-color: #eab308;
+    color: #fef08a;
+}
+
+.qa-chip .unpin-btn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 0.75rem;
+    margin-left: 0.2rem;
+    padding: 0;
+}
+
+.qa-chip .unpin-btn:hover {
+    color: #ef4444;
+}
+
+.fav-btn {
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: color 0.2s ease;
+}
+
+.fav-btn.active, .fav-btn:hover {
+    color: #facc15;
+}
+
+.favorite-toggle-btn {
+    font-size: 1.1rem;
+    color: #facc15;
+}
+
+/* Favorites & Quick Access enhancements */
+.quick-access-bar:empty,
+.quick-access-items:empty {
+    min-height: 0;
+}
+
+.quick-access-empty {
+    color: #64748b;
+    font-size: 0.75rem;
+    font-style: italic;
+}
+
+.folder-pin-btn {
+    color: #64748b;
+}
+
+.folder-pin-btn.pinned {
+    color: #facc15;
+}
+
+.favorite-card-btn {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 2;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid #334155;
+    color: #64748b;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.favorite-card-btn:hover,
+.favorite-card-btn.active {
+    color: #facc15;
+    border-color: #facc15;
+    background: rgba(15, 23, 42, 0.95);
+}
