@@ -5,18 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anims-Notes</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Load html2pdf bundle for clean PDF export rendering -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
     <div class="app-layout">
         <aside class="sidebar" id="sidebar">
             <button class="toggle-btn" id="toggleSidebarBtn">MENU</button>
+
             <nav class="nav-menu">
-                <button class="nav-item active" data-view="active"><span class="nav-text">All Notes</span></button>
-                <button class="nav-item" data-view="favorites"><span class="nav-text">★ Favorites</span></button>
-                <button class="nav-item" data-view="archive"><span class="nav-text">Archive</span></button>
-                <button class="nav-item" data-view="bin"><span class="nav-text">Recycle Bin</span></button>
+                <button class="nav-item active" data-view="active">
+                    <span class="nav-text">All Notes</span>
+                </button>
+
+                <button class="nav-item" data-view="favorites">
+                    <span class="nav-text">★ Favorites</span>
+                </button>
+
+                <button class="nav-item" data-view="archive">
+                    <span class="nav-text">Archive</span>
+                </button>
+
+                <button class="nav-item" data-view="bin">
+                    <span class="nav-text">Recycle Bin</span>
+                </button>
 
                 <div class="sidebar-divider"></div>
 
@@ -24,35 +35,51 @@
                     <span>Folders</span>
                     <button id="addFolderBtn" title="Create Folder">+</button>
                 </div>
+
                 <div id="foldersTree" class="folders-tree"></div>
 
                 <div class="sidebar-divider"></div>
 
-                <button class="nav-item action-link" id="exportBtn"><span class="nav-text">Export Backup (JSON)</span></button>
-                <button class="nav-item action-link" id="importBtnTrigger"><span class="nav-text">Import Backup</span></button>
-                <input type="file" id="importInput" accept=".json" style="display: none;">
+                <button class="nav-item action-link" id="exportBtn">
+                    <span class="nav-text">Export Backup (JSON)</span>
+                </button>
+
+                <button class="nav-item action-link" id="importBtnTrigger">
+                    <span class="nav-text">Import Backup</span>
+                </button>
+
+                <button class="nav-item action-link" id="themeSettingsBtn">
+                    <span class="nav-text">🎨 Themes</span>
+                </button>
+
+                <input type="file" id="importInput" accept=".json" style="display:none;">
             </nav>
         </aside>
 
         <main class="main-content">
-            <!-- Quick Access Toolbar for Favorites & Pinned Folders -->
             <div class="quick-access-bar" id="quickAccessBar">
                 <span class="quick-access-title">Quick Access:</span>
-                <div class="quick-access-items" id="quickAccessItems">
-                    <!-- Dynamic chips for starred notes and pinned folders will render here -->
-                </div>
+                <div class="quick-access-items" id="quickAccessItems"></div>
             </div>
 
             <header class="top-bar">
                 <h1 id="viewHeading">Anims-Notes</h1>
+
                 <div class="search-filter-container">
-                    <input type="text" id="searchInput" placeholder="Search title, content, or #tags..." class="search-input">
+                    <input
+                        type="text"
+                        id="searchInput"
+                        placeholder="Search title, content, or #tags..."
+                        class="search-input"
+                    >
+
                     <div class="filter-group">
                         <select id="typeFilter" class="filter-select">
                             <option value="all">All Types</option>
                             <option value="text">Text Notes</option>
                             <option value="checklist">Checklists</option>
                         </select>
+
                         <select id="colorFilter" class="filter-select">
                             <option value="all">All Colors</option>
                             <option value="#1e293b">Default Dark</option>
@@ -61,6 +88,7 @@
                             <option value="#701a75">Deep Purple</option>
                             <option value="#78350f">Warm Amber</option>
                         </select>
+
                         <select id="sortFilter" class="filter-select">
                             <option value="newest">Newest First</option>
                             <option value="oldest">Oldest First</option>
@@ -77,37 +105,57 @@
                 </div>
             </div>
 
-            <!-- Format Selector Modal -->
             <div class="modal-overlay" id="typeModal">
                 <div class="modal-content type-selector">
                     <h2>Select Note Format</h2>
+
                     <div class="type-options">
                         <button class="type-btn" id="selectTextNote">
                             <span class="type-title">Standard Note</span>
                             <span class="type-desc">Freeform rich text, attachments, & drawings</span>
                         </button>
+
                         <button class="type-btn" id="selectChecklistNote">
                             <span class="type-title">Checklist / Todo List</span>
                             <span class="type-desc">Interactive task list with checkboxes</span>
                         </button>
                     </div>
+
                     <button class="close-type-btn" id="closeTypeBtn">Cancel</button>
                 </div>
             </div>
 
-            <!-- Note Editor Modal -->
             <div class="modal-overlay" id="noteModal">
                 <div class="modal-content modal-large">
                     <div class="modal-header">
                         <h2 id="modalTitle">Editor</h2>
+
                         <div class="modal-tools">
                             <span id="autoSaveIndicator" class="autosave-status">Saved</span>
-                            
-                            <button type="button" class="tool-btn favorite-toggle-btn" id="toggleFavoriteModalBtn" title="Star/Unstar Note">★</button>
 
-                            <!-- Single Note Export Tools -->
+                            <button
+                                type="button"
+                                class="tool-btn"
+                                id="noteHistoryBtn"
+                                title="View Note History"
+                            >
+                                ↩ History
+                            </button>
+
+                            <button
+                                type="button"
+                                class="tool-btn favorite-toggle-btn"
+                                id="toggleFavoriteModalBtn"
+                                title="Star/Unstar Note"
+                            >
+                                ★
+                            </button>
+
                             <div class="export-dropdown">
-                                <button type="button" class="tool-btn" id="exportNoteMenuBtn">⬇ Export</button>
+                                <button type="button" class="tool-btn" id="exportNoteMenuBtn">
+                                    ⬇ Export
+                                </button>
+
                                 <div class="export-menu" id="exportMenu">
                                     <button type="button" id="exportPdfBtn">Export as .PDF</button>
                                     <button type="button" id="exportMDBtn">Export as .MD</button>
@@ -119,12 +167,15 @@
                                 <input type="checkbox" id="noteProtectedInput">
                                 <span>Lock Note</span>
                             </label>
+
                             <div class="folder-picker">
                                 <span class="picker-label">Folder:</span>
                                 <select id="noteFolderSelect" class="filter-select"></select>
                             </div>
+
                             <div class="color-picker">
                                 <span class="picker-label">Color:</span>
+
                                 <select id="noteColorInput" class="filter-select">
                                     <option value="#1e293b">Default Dark</option>
                                     <option value="#1e3a8a">Navy Blue</option>
@@ -133,34 +184,81 @@
                                     <option value="#78350f">Warm Amber</option>
                                 </select>
                             </div>
-                            <div class="stats" id="modalStats">0 words | 0 chars</div>
+
+                            <div class="stats" id="modalStats">
+                                0 words | 0 chars
+                            </div>
                         </div>
                     </div>
 
-                    <input type="text" id="noteTitleInput" placeholder="Title...">
-                    <input type="text" id="noteTagsInput" placeholder="Tags (e.g. #science, #circuits)...">
+                    <input
+                        type="text"
+                        id="noteTitleInput"
+                        placeholder="Title..."
+                    >
+
+                    <input
+                        type="text"
+                        id="noteTagsInput"
+                        placeholder="Tags (e.g. #science, #circuits)..."
+                    >
 
                     <div class="editor-toolbar" id="textToolbar">
                         <button type="button" class="tool-btn" id="btnBold">B</button>
                         <button type="button" class="tool-btn" id="btnItalic">I</button>
                         <button type="button" class="tool-btn" id="btnUnderline">U</button>
-                        <button type="button" class="tool-btn highlight-tool" id="btnHighlight">Highlight</button>
-                        <button type="button" class="tool-btn" id="openDrawingBtn">🎨 Sketch</button>
+                        <button type="button" class="tool-btn highlight-tool" id="btnHighlight">
+                            Highlight
+                        </button>
+
+                        <button type="button" class="tool-btn" id="openDrawingBtn">
+                            🎨 Sketch
+                        </button>
+
                         <label class="tool-btn file-upload-btn">
                             📎 Attach File
-                            <input type="file" id="fileAttachmentInput" multiple accept="image/*,application/pdf,.txt" style="display:none;">
+                            <input
+                                type="file"
+                                id="fileAttachmentInput"
+                                multiple
+                                accept="image/*,application/pdf,.txt"
+                                style="display:none;"
+                            >
                         </label>
                     </div>
 
                     <div id="editorContainer">
-                        <div id="noteTextEditor" contenteditable="true" data-placeholder="Write note or drag & drop images/files here..."></div>
-                        <div id="attachmentsPreview" class="attachments-preview"></div>
+                        <div
+                            id="noteTextEditor"
+                            contenteditable="true"
+                            data-placeholder="Write note or drag & drop images/files here..."
+                        ></div>
 
-                        <div id="checklistEditor" class="checklist-builder" style="display: none;">
+                        <div
+                            id="attachmentsPreview"
+                            class="attachments-preview"
+                        ></div>
+
+                        <div
+                            id="checklistEditor"
+                            class="checklist-builder"
+                            style="display:none;"
+                        >
                             <div class="checklist-input-group">
-                                <input type="text" id="newChecklistItem" placeholder="Add a new task...">
-                                <button type="button" id="addChecklistItemBtn">Add</button>
+                                <input
+                                    type="text"
+                                    id="newChecklistItem"
+                                    placeholder="Add a new task..."
+                                >
+
+                                <button
+                                    type="button"
+                                    id="addChecklistItemBtn"
+                                >
+                                    Add
+                                </button>
                             </div>
+
                             <ul id="checklistItemsList"></ul>
                         </div>
                     </div>
@@ -172,21 +270,156 @@
                 </div>
             </div>
 
-            <!-- Sketch Canvas Modal Overlay -->
+            <div class="modal-overlay" id="historyModal">
+                <div class="modal-content history-content">
+                    <div class="modal-header">
+                        <h2>Note History</h2>
+
+                        <button
+                            type="button"
+                            class="tool-btn"
+                            id="closeHistoryBtn"
+                        >
+                            Close
+                        </button>
+                    </div>
+
+                    <p class="history-info">
+                        Previous saved versions are kept automatically.
+                        Select a version to preview it, then restore it if needed.
+                    </p>
+
+                    <div id="historyList" class="history-list"></div>
+
+                    <div id="historyPreview" class="history-preview">
+                        Select a version to preview it.
+                    </div>
+
+                    <div class="modal-actions">
+                        <button
+                            id="restoreHistoryBtn"
+                            type="button"
+                            disabled
+                        >
+                            Restore Selected Version
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-overlay" id="themeModal">
+                <div class="modal-content theme-content">
+                    <div class="modal-header">
+                        <h2>🎨 Themes</h2>
+
+                        <button
+                            type="button"
+                            class="tool-btn"
+                            id="closeThemeBtn"
+                        >
+                            Close
+                        </button>
+                    </div>
+
+                    <label class="theme-setting-label">Theme</label>
+
+                    <div class="theme-options">
+                        <button class="theme-option" data-theme="dark">
+                            🌙 Dark
+                            <span>Classic dark theme</span>
+                        </button>
+
+                        <button class="theme-option" data-theme="light">
+                            ☀️ Light
+                            <span>Bright and clean</span>
+                        </button>
+
+                        <button class="theme-option" data-theme="amoled">
+                            ⬛ AMOLED
+                            <span>Pure black backgrounds</span>
+                        </button>
+
+                        <button class="theme-option" data-theme="ocean">
+                            🌊 Ocean Blue
+                            <span>Blue accent theme</span>
+                        </button>
+
+                        <button class="theme-option" data-theme="forest">
+                            🌿 Forest Green
+                            <span>Green accent theme</span>
+                        </button>
+                    </div>
+
+                    <label
+                        class="theme-setting-label"
+                        for="accentColorInput"
+                    >
+                        Custom Accent Color
+                    </label>
+
+                    <div class="custom-accent-row">
+                        <input
+                            type="color"
+                            id="accentColorInput"
+                            value="#2563eb"
+                        >
+
+                        <span id="accentColorValue">#2563eb</span>
+
+                        <button
+                            type="button"
+                            class="tool-btn"
+                            id="resetAccentBtn"
+                        >
+                            Reset Accent
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div class="modal-overlay" id="drawingModal">
                 <div class="modal-content drawing-content">
                     <div class="modal-header">
                         <h2>Drawing / Sketch Pad</h2>
+
                         <div class="modal-tools">
-                            <input type="color" id="brushColor" value="#38bdf8">
-                            <input type="range" id="brushSize" min="1" max="20" value="3">
-                            <button class="tool-btn" id="clearCanvasBtn">Clear</button>
+                            <input
+                                type="color"
+                                id="brushColor"
+                                value="#38bdf8"
+                            >
+
+                            <input
+                                type="range"
+                                id="brushSize"
+                                min="1"
+                                max="20"
+                                value="3"
+                            >
+
+                            <button
+                                class="tool-btn"
+                                id="clearCanvasBtn"
+                            >
+                                Clear
+                            </button>
                         </div>
                     </div>
-                    <canvas id="sketchCanvas" width="700" height="400"></canvas>
+
+                    <canvas
+                        id="sketchCanvas"
+                        width="700"
+                        height="400"
+                    ></canvas>
+
                     <div class="modal-actions">
-                        <button id="cancelDrawingBtn" type="button">Cancel</button>
-                        <button id="saveDrawingBtn" type="button">Embed Canvas Sketch</button>
+                        <button id="cancelDrawingBtn" type="button">
+                            Cancel
+                        </button>
+
+                        <button id="saveDrawingBtn" type="button">
+                            Embed Canvas Sketch
+                        </button>
                     </div>
                 </div>
             </div>
@@ -195,6 +428,12 @@
         </main>
     </div>
 
-    <script src="script.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/notes.js"></script>
+    <script src="js/folders.js"></script>
+    <script src="js/history.js"></script>
+    <script src="js/themes.js"></script>
+    <script src="js/editor.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
